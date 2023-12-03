@@ -1,4 +1,5 @@
 import { GraphQLServer } from 'graphql-yoga';
+import { v4 as uuidv4 } from 'uuid';
 
 // Scalar types - String, Boolean, Int, Float, ID
 
@@ -85,6 +86,18 @@ const typeDefs = `
         comments: [Comment!]!
     }
 
+	type Mutation {
+		createUser(data: CreateUserInput): User!
+		createPost(title: String!, body: String!, published: Boolean!, author: ID!): Post!
+		createComment(text: String!, author: ID!, post: ID!): Comment!
+	}
+
+	input CreateUserInput {
+		name: String!
+		email: String!
+		age: Int
+	}
+
     type User{
         id: ID!
         name: String!
@@ -161,6 +174,55 @@ const resolvers = {
 		},
 		comments(parent, args, context, info) {
 			return comments;
+		},
+	},
+	Mutation: {
+		createUser(parent, args, context, info) {
+			const emailTaken = users.some((user) => user.email === args.data.email);
+			if (emailTaken) {
+				throw new Error('Email taken.');
+			}
+			const user = {
+				id: uuidv4(),
+				...args.data,
+			};
+
+			users.push(user);
+
+			return user;
+		},
+		createPost(parent, args, context, info) {
+			const userExists = users.some((user) => user.id === args.author);
+			if (!userExists) {
+				throw new Error('User not found');
+			}
+			const post = {
+				id: uuidv4(),
+				...args,
+			};
+
+			posts.push(post);
+
+			return post;
+		},
+
+		createComment(parent, args, context, info) {
+			const userExists = users.some((user) => user.id === args.author);
+			if (!userExists) {
+				throw new Error('User not found');
+			}
+			const postExists = posts.some(
+				({ id, published }) => id === args.post && published
+			);
+			if (!postExists) {
+				throw new Error('Post not found');
+			}
+			const comment = {
+				id: uuidv4(),
+				...args,
+			};
+			comments.push(comment);
+			return comment;
 		},
 	},
 	Post: {
